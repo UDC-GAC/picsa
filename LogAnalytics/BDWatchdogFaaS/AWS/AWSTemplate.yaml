@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+    LambdaLogsTableName:  
+      Type: String
+      Description: Name of the DynamoDB Table to be created. Please, ensure it does not exist previously.
+      Default: LambdaLogsTable
+    LogGroupName:
+      Type: String
+      Description: Name of the CloudWatch log group to be monitorized
+    LogGroupARN:
+      Type: String
+      Description: ARN of the CloudWatch log group to be monitorized
+    PowerBILogsUrl:
+      Type: String
+      Description: PowerBI Streaming Dataset API Url for AWS logs
+    PowerBIStatsUrl:
+      Type: String
+      Description: PowerBI Streaming Dataset API Url for stats
+
+Resources:
+  LambdaLogsTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      TableName: !Ref LambdaLogsTableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  AWSLogsForwarder:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: AWSLogsForwarder
+      Description: 'Aws logs forwarder'
+      Runtime: python3.10
+      Code: 
+        S3Bucket: 'mfa-lambda-faas'
+        S3Key: 'AWSLogsForwarder-v3.zip'
+      MemorySize: 128
+      Timeout: 10
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt AWSLogsForwarderRole.Arn
+      Environment:
+        Variables:
+          LambdaLogsTable: !Ref LambdaLogsTableName
+          PowerBIStreamLogsUrl: !Ref PowerBILogsUrl
+
+  LogStatsForwarder:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: LogStatsForwarder
+      Description: 'Log stats forwarder'
+      Runtime: python3.10
+      Code: 
+        S3Bucket: 'mfa-lambda-faas'
+        S3Key: 'LogStatsForwarder.zip'
+      MemorySize: 128
+      Timeout: 10
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LogStatsForwarderRole.Arn
+      Environment:
+        Variables:
+          LambdaLogsTable: !Ref LambdaLogsTableName
+          PowerBIUrl: !Ref PowerBIStatsUrl
+
+  AWSLogsForwarderLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AWSLogsForwarder}"
+      RetentionInDays: 3
+
+  LogStatsForwarderLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${LogStatsForwarder}"
+      RetentionInDays: 3
+
+  MySubscriptionFilter:
+    Type: 'AWS::Logs::SubscriptionFilter'
+    Properties:
+      LogGroupName: !Ref LogGroupName
+      FilterName: MySubscriptionFilter
+      FilterPattern: ""
+      DestinationArn: !GetAtt AWSLogsForwarder.Arn
+
+  LogGroupInvokeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt AWSLogsForwarder.Arn
+      Action: lambda:InvokeFunction
+      Principal: logs.amazonaws.com
+      SourceAccount: !Ref 'AWS::AccountId'
+      SourceArn: !Ref LogGroupARN
+
+  AWSLogsForwarderRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: AWSLogsForwarderRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: DynamoDBWritePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:PutItem'
+                Resource: !GetAtt LambdaLogsTable.Arn
+        - PolicyName: CloudWatchLogsPermission
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: '*'
+
+  LogStatsForwarderRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: LogStatsForwarderRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: DynamoDBScanPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:Scan'
+                Resource: !GetAtt LambdaLogsTable.Arn
+        - PolicyName: CloudWatchLogsPermission
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: '*'
