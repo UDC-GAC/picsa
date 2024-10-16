@@ -1,0 +1,28 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Sid": "List",
+        "Effect": "Allow",
+        "Action": [
+          "s3:ListBucket",
+          "s3:GetObject"
+        ],
+        "Resource": [
+          "${s3_bucket_arn}",
+          "${s3_bucket_arn}/*"
+        ]
+    },
+    {
+      "Sid": "Modify",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": [
+        "${s3_bucket_arn}/dags/*"
+      ]
+    }
+  ]
+}

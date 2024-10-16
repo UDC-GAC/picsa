@@ -1,0 +1,5 @@
+bucket               = "torusware-terraform-states"
+key                  = "terraform.tfstate"
+workspace_key_prefix = "etl-s3-to-rds"
+dynamodb_table       = "torusware-terraform-states-lock-id"
+region               = "eu-west-1"

@@ -1,0 +1,10 @@
+# Terraform
+.terraform
+.terraform.lock.hcl
+plan-output
+
+# Airflow volumes
+code/docker/mounted
+
+# Runner folder
+actions-runner

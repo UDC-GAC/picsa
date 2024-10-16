@@ -1,0 +1,65 @@
+---
+name: 'Sync dags'
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - 'code/dags/**.py'
+
+jobs:
+  sync-dags:
+    name: 'S3 Sync Dags'
+    runs-on: self-hosted
+    steps:
+      - name: Set ENV variable
+        id: env
+        run: |
+          if [[ $BRANCH = "main" ]]; then
+            echo "workspace=${{ vars.PRO_ENV_SUFIX }}" >> $GITHUB_ENV
+          else
+            echo "workspace=${{ vars.DEV_ENV_SUFIX }}" >> $GITHUB_ENV
+          fi
+
+      - name: Check out repository code
+        uses: actions/checkout@v3
+        with:
+          repository: torusware/picsa-orquestador-airflow
+          path: "./"
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Python environment
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10.6"
+
+      - name: Flake8 Lint
+        uses: py-actions/flake8@v2
+        with:
+          ignore: "BLK100"
+          max-line-length: "80"
+          path: "./code/dags/"
+          update-pip: true
+          plugins: "flake8-bugbear==22.1.11 flake8-black"
+
+      - name: Check if S3 bucket exists
+        id: checkS3
+        run: aws s3api wait bucket-exists --bucket "${{ env.AWS_S3_BUCKET }}-${{ env.workspace }}"
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET_PREFIX }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+
+      - name: S3 Sync dags scripts
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --follow-symlinks --delete
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          SOURCE_DIR: 'code/dags'
+          DEST_DIR: 'dags'
+        if: steps.checkS3.outcome == 'success'
