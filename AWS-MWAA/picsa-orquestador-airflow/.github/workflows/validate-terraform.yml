@@ -1,0 +1,121 @@
+---
+name: Terraform Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - 'code/terraform/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-terraform:
+    runs-on: self-hosted
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Set ENV variable
+        id: env
+        run: |
+          if [[ $BRANCH = "main" ]]; then
+            echo "workspace=pro" >> $GITHUB_ENV
+          else
+            echo "workspace=dev" >> $GITHUB_ENV
+          fi
+      - name: Check out repository code
+        uses: actions/checkout@v3
+        with:
+          repository: torusware/picsa-orquestador-airflow
+          path: "./"
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.2.8
+
+      - name: Terraform Init
+        id: init
+        run: terraform init -backend-config="./backend.tfvars" -no-color
+        continue-on-error: true
+        working-directory: ./code/terraform/environments/${{ env.workspace }}
+
+      - name: Select Terraform workspace
+        id: select-workspace
+        run: terraform workspace select ${{ env.workspace }} -no-color
+        working-directory: ./code/terraform/environments/${{ env.workspace }}
+      
+      - name: Terraform Format
+        id: fmt
+        run: terraform fmt -check -no-color
+        continue-on-error: true
+        working-directory: ./code/terraform/environments/${{ env.workspace }}
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+        continue-on-error: true
+        working-directory: ./code/terraform/environments/${{ env.workspace }}
+
+      - name: Terraform Plan
+        id: plan
+        if: github.event_name == 'pull_request'
+        run: terraform plan -no-color -input=false
+        continue-on-error: true
+        working-directory: ./code/terraform/environments/${{ env.workspace }}
+
+      - name: Update Pull Request
+        uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        env:
+          INIT: "${{ steps.init.outputs.stdout }}"
+          PLAN: "${{ steps.plan.outputs.stdout }}"
+          FMT: "${{ steps.fmt.outputs.stdout }}"
+          VALIDATE: "${{ steps.validate.outputs.stdout }}"
+        with:
+          github-token: ${{ secrets.GH_PAT }}
+          script: |
+            const output = `#### Terraform Initialization ⚙️ \`${{ steps.init.outcome }}\`
+            \`\`\`bash\n
+            ${process.env.INIT}
+            \`\`\`\n
+            #### Terraform Format and Style 🖌 \`${{ steps.fmt.outcome }}\`
+            \`\`\`bash\n
+            ${process.env.FMT}
+            \`\`\`\n
+            #### Terraform Validation 🤖 \`${{ steps.validate.outcome }}\`
+            \`\`\`bash\n
+            ${process.env.VALIDATE}
+            \`\`\`\n
+            #### Terraform Plan 📖 \`${{ steps.plan.outcome }}\`
+            \`\`\`bash\n
+            ${process.env.PLAN}
+            \`\`\`\n
+            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Terraform Status
+        if: |
+          steps.init.outcome == 'failure' ||
+          steps.fmt.outcome == 'failure' ||
+          steps.validate.outcome == 'failure' ||
+          steps.plan.outcome == 'failure' 
+        run: exit 1

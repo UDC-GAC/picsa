@@ -1,0 +1,40 @@
+---
+name: 'Docker Compose Validation'
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - 'code/docker/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-compose:
+    name: 'Validate docker-compose.yaml'
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: 'Check out repository code'
+        id: checkout
+        uses: actions/checkout@v3
+        with:
+          repository: torusware/picsa-orquestador-airflow
+          path: "./"
+          token: ${{ secrets.GH_PAT }}
+
+      - name: 'yamllint'
+        id: yamllint
+        if: github.event_name == 'pull_request'
+        uses: karancode/yamllint-github-action@master
+        with:
+          yamllint_file_or_dir: 'code/docker/docker-compose.yaml'
+          yamllint_config_filepath: "code/docker/.yamllint"
+          yamllint_strict: false
+          yamllint_comment: true
+        env:
+          GITHUB_ACCESS_TOKEN: ${{ secrets.GH_PAT }}

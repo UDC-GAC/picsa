@@ -1,0 +1,101 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AirflowPublishMetrics",
+      "Action": [
+        "airflow:PublishMetrics"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:airflow:${region}:${account_id}:environment/${name_prefix}"
+      ]
+    },
+    {
+      "Sid": "S3Permissions",
+      "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*",
+        "s3:ListAllMyBuckets"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "${s3_bucket_arn}",
+        "${s3_bucket_arn}/*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchLogsDescribe",
+      "Action": [
+        "logs:DescribeLogGroups"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchLogsPermissions",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:CreateLogGroup",
+        "logs:PutLogEvents",
+        "logs:GetLogEvents",
+        "logs:GetLogRecord",
+        "logs:GetLogGroupFields",
+        "logs:GetQueryResults",
+        "logs:DescribeLogGroups"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:logs:${region}:${account_id}:log-group:airflow-${name_prefix}*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchPutMetricData",
+      "Action": [
+        "cloudwatch:PutMetricData"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "*"
+      ]
+    },
+    {
+      "Sid": "SQSPermissions",
+      "Action": [
+        "sqs:ChangeMessageVisibility",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ReceiveMessage",
+        "sqs:SendMessage"
+      ],
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:sqs:${region}:*:airflow-celery-*"
+      ]
+    },
+    {
+      "Sid": "KMSPermissions",
+      "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:GenerateDataKey*",
+        "kms:Encrypt"
+      ],
+      "Effect": "Allow",
+      "NotResource": [
+        "arn:aws:kms:*:${account_id}:key/*"
+      ],
+      "Condition": {
+        "StringLike": {
+          "kms:ViaService": [
+            "sqs.${region}.amazonaws.com"
+          ]
+        }
+      }
+    }
+  ]
+}

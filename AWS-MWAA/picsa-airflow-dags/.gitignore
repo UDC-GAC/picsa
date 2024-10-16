@@ -1,0 +1,13 @@
+# Terraform
+.terraform
+.terraform.lock.hcl
+plan-output
+
+# Runner folder
+actions-runner
+
+# DAG .env file
+.env
+
+# Lambda packages
+*.zip
