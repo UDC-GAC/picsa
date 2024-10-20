@@ -19,6 +19,6 @@ Project funded by the Ministry of Science, Innovation and Universities of Spain 
 121309-I00/MCIN/AEI/10.13039/501100011033) and by the European Union “NextGenerationEU/
 PRTR”.
 
-<img align="left" width="618" alt="LogosNG(PlantillaInformeFinal)" src="https://github.com/user-attachments/assets/8deae4b2-8fa4-44d3-aeb2-e57805ddd5f1">
-<img align="right" width="275" alt="Logo UDC" src="https://github.com/user-attachments/assets/db27406f-df7d-40e4-ac13-40d9fd947d62">
+<img align="left" width="515" alt="LogosNG(PlantillaInformeFinal)" src="https://github.com/user-attachments/assets/8deae4b2-8fa4-44d3-aeb2-e57805ddd5f1">
+<img align="right" width="250" alt="Logo UDC" src="https://github.com/user-attachments/assets/db27406f-df7d-40e4-ac13-40d9fd947d62">
 
