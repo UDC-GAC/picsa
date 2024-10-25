@@ -1,0 +1,3 @@
+[submodule "ServerlessYARN"]
+	path = ServerlessYARN
+	url = https://github.com/UDC-GAC/ServerlessYARN
